@@ -1,6 +1,6 @@
 ﻿using AdventOfCode2023.DayOne;
 
-string[] input = File.ReadAllLines("input.txt");
+var input = File.ReadAllLines("input.txt");
 
 var resultOne = Solution.PartOne(input);
 
