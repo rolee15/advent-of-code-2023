@@ -16,7 +16,7 @@ public class DayOneTest
             "treb7uchet"
         ];
 
-        var result = DayOne.DayOne.PartOne(input);
+        var result = Solution.PartOne(input);
 
         result.Should().Be(142);
     }
@@ -31,7 +31,7 @@ public class DayOneTest
             "789"
         ];
 
-        var result = DayOne.DayOne.PartOne(input);
+        var result = Solution.PartOne(input);
 
         result.Should().Be(138);
     }
@@ -50,7 +50,7 @@ public class DayOneTest
             "7pqrstsixteen"
         ];
 
-        var result = DayOne.DayOne.PartTwo(input);
+        var result = Solution.PartTwo(input);
 
         result.Should().Be(281);
     }

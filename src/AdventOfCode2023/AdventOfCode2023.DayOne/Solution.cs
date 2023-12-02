@@ -3,7 +3,7 @@ using System.Collections.Frozen;
 
 namespace AdventOfCode2023.DayOne;
 
-public class DayOne
+public class Solution
 {
     private static readonly SearchValues<char> PartOneSearchValues = SearchValues.Create(['1', '2', '3', '4', '5', '6', '7', '8', '9']);
 
