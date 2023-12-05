@@ -1,46 +1,22 @@
 ﻿namespace AdventOfCode2023.DayFive;
 
-public readonly record struct Id(long Value);
+
 
 public static class Solution
 {
-    private static Dictionary<Id, Id> _seedToSoilMap;
-    private static Dictionary<Id, Id> _soilToFertilizerMap;
-    private static Dictionary<Id, Id> _fertilizerToWaterMap;
-    private static Dictionary<Id, Id> _waterToLightMap;
-    private static Dictionary<Id, Id> _lightToTemperatureMap;
-    private static Dictionary<Id, Id> _temperatureToHumidityMap;
-    private static Dictionary<Id, Id> _humidityToLocationMap;
-
     public static long PartOne(string[] input)
     {
         var chunks = Parser.ChunkByEmptyLines(input);
         var seedIds = Parser.ParseSeedIds(chunks[0]);
-
-        InitMaps(chunks[1..chunks.Count]);
-
-        return seedIds.Select(MapSeedToLocation).Min(x => x.Value);
+        
+        var reducer = new Reducer(chunks[1..chunks.Count]);
+        
+        return seedIds.Select(reducer.Reduce).Min();
     }
 
     public static long PartTwo(string[] input)
     {
         return 0;
-    }
-    
-    private static Id MapSeedToLocation(Id id)
-    {
-        return id;
-    }
-
-    private static void InitMaps(IReadOnlyCollection<string[]> skip)
-    {
-        _seedToSoilMap = Parser.ParseMap(skip.ElementAt(0));
-        _soilToFertilizerMap = Parser.ParseMap(skip.ElementAt(1));
-        _fertilizerToWaterMap = Parser.ParseMap(skip.ElementAt(2));
-        _waterToLightMap = Parser.ParseMap(skip.ElementAt(3));
-        _lightToTemperatureMap = Parser.ParseMap(skip.ElementAt(4));
-        _temperatureToHumidityMap = Parser.ParseMap(skip.ElementAt(5));
-        _humidityToLocationMap = Parser.ParseMap(skip.ElementAt(6));
     }
 }
 
@@ -57,17 +33,32 @@ internal static class Parser
             chunks.Add(input.AsSpan().Slice(start, i - start).ToArray());
             start = i + 1;
         }
+        
+        // Add the last chunk
+        chunks.Add(input.AsSpan().Slice(start, input.Length - start).ToArray());
 
         return chunks;
     }
     
-    public static IEnumerable<Id> ParseSeedIds(string[] input)
+    public static long[] ParseSeedIds(string[] input)
     {
         var rest = input[0].SkipWhile(IsNotDigit).ToArray();
         var ids = new string(rest).Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Select(x => new Id(long.Parse(x)))
+            .Select(long.Parse)
             .ToArray();
+        
         return ids;
+    }
+
+    public static List<MapEntry> ParseMap(string[] chunk)
+    {
+        return chunk.Skip(1).Select(ParseMapEntry).ToList();
+    }
+
+    private static MapEntry ParseMapEntry(string line)
+    {
+        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return new MapEntry(long.Parse(parts[0]), long.Parse(parts[1]), long.Parse(parts[2]));
     }
 
     private static bool IsDigit(char c)
@@ -79,34 +70,48 @@ internal static class Parser
     {
         return !IsDigit(c);
     }
+}
 
-    public static Dictionary<Id, Id> ParseMap(string[] lines)
+internal class Reducer(IReadOnlyList<string[]> chunks)
+{
+    private readonly Mapper _seedToSoilMapper = new(chunks[0]);
+    private readonly Mapper _soilToFertilizerMapper = new(chunks[1]);
+    private readonly Mapper _fertilizerToWaterMapper = new(chunks[2]);
+    private readonly Mapper _waterToLightMapper = new(chunks[3]);
+    private readonly Mapper _lightToTemperatureMapper = new(chunks[4]);
+    private readonly Mapper _temperatureToHumidityMapper = new(chunks[5]);
+    private readonly Mapper _humidityToLocationMapper = new(chunks[6]);
+    
+    public long Reduce(long seedId)
     {
-        var map = new Dictionary<Id, Id>();
-        for (var i = 1; i < lines.Length; i++)
-        {
-            var nums = lines[i].Split(' ').Select(long.Parse).ToArray();
-            var dest = nums[0];
-            var src = nums[1];
-            var range = nums[2];
-            
-            
-        }
-
-        return map;
+        var soilId = _seedToSoilMapper.Map(seedId);
+        var fertilizerId = _soilToFertilizerMapper.Map(soilId);
+        var waterId = _fertilizerToWaterMapper.Map(fertilizerId);
+        var lightId = _waterToLightMapper.Map(waterId);
+        var temperatureId = _lightToTemperatureMapper.Map(lightId);
+        var humidityId = _temperatureToHumidityMapper.Map(temperatureId);
+        var locationId = _humidityToLocationMapper.Map(humidityId);
+        return locationId;
     }
 }
 
-public static class Extensions
+internal class Mapper(List<MapEntry> mapEntries)
 {
-    public static IEnumerable<Id> Map(this IEnumerable<Id> ids, Dictionary<long, Id> map)
+    public Mapper(string[] chunk) : this(Parser.ParseMap(chunk))
     {
-        foreach (var id in ids)
-        {
-            if (map.TryGetValue(id.Value, out var value))
-            {
-                yield return value;
-            }
-        }
+    }
+    
+    public long Map(long source)
+    {
+        var entry = mapEntries.FirstOrDefault(e => e.SourceStart <= source && e.SourceEnd >= source);
+        if (entry == default) return source;
+        return entry.DestinationStart + (source - entry.SourceStart);
+    }
+}
+
+internal readonly record struct MapEntry(long DestinationStart, long DestinationEnd, long SourceStart, long SourceEnd)
+{
+    public MapEntry(long destination, long source, long length) : this(destination, destination + length, source, source + length)
+    {
     }
 }
