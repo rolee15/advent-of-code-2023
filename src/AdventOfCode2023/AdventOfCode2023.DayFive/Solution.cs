@@ -1,16 +1,13 @@
 ﻿namespace AdventOfCode2023.DayFive;
 
-
-
 public static class Solution
 {
     public static long PartOne(string[] input)
     {
         var chunks = Parser.ChunkByEmptyLines(input);
         var seedIds = Parser.ParseSeedIds(chunks[0]);
-        
         var reducer = new Reducer(chunks[1..chunks.Count]);
-        
+
         return seedIds.Select(reducer.Reduce).Min();
     }
 
@@ -29,24 +26,24 @@ internal static class Parser
         for (var i = 0; i < input.Length; i++)
         {
             if (!string.IsNullOrWhiteSpace(input[i])) continue;
-            
+
             chunks.Add(input.AsSpan().Slice(start, i - start).ToArray());
             start = i + 1;
         }
-        
+
         // Add the last chunk
         chunks.Add(input.AsSpan().Slice(start, input.Length - start).ToArray());
 
         return chunks;
     }
-    
+
     public static long[] ParseSeedIds(string[] input)
     {
         var rest = input[0].SkipWhile(IsNotDigit).ToArray();
         var ids = new string(rest).Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Select(long.Parse)
             .ToArray();
-        
+
         return ids;
     }
 
@@ -81,7 +78,7 @@ internal class Reducer(IReadOnlyList<string[]> chunks)
     private readonly Mapper _lightToTemperatureMapper = new(chunks[4]);
     private readonly Mapper _temperatureToHumidityMapper = new(chunks[5]);
     private readonly Mapper _humidityToLocationMapper = new(chunks[6]);
-    
+
     public long Reduce(long seedId)
     {
         var soilId = _seedToSoilMapper.Map(seedId);
@@ -100,7 +97,7 @@ internal class Mapper(List<MapEntry> mapEntries)
     public Mapper(string[] chunk) : this(Parser.ParseMap(chunk))
     {
     }
-    
+
     public long Map(long source)
     {
         var entry = mapEntries.FirstOrDefault(e => e.SourceStart <= source && e.SourceEnd >= source);
@@ -111,7 +108,8 @@ internal class Mapper(List<MapEntry> mapEntries)
 
 internal readonly record struct MapEntry(long DestinationStart, long DestinationEnd, long SourceStart, long SourceEnd)
 {
-    public MapEntry(long destination, long source, long length) : this(destination, destination + length, source, source + length)
+    public MapEntry(long destination, long source, long length) : this(destination, destination + length, source,
+        source + length)
     {
     }
 }
