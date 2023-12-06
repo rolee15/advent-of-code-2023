@@ -16,15 +16,16 @@ public static class Solution
         var chunks = Parser.ChunkByEmptyLines(input);
         var seedIdRanges = Parser.ParseSeedIdRanges(chunks[0]);
         var reducer = new Reducer(chunks[1..chunks.Count]);
-        
-        if (!reducer.IsReducingReversible()) throw new Exception("You are fucked");
-        
+
+        if (reducer.IsReducingReversible())
+            throw new YouAreFuckedException("Aww, you thought it will be that easy?");
+
         for (long i = 0; i < long.MaxValue; i++)
         {
             var seedId = reducer.ReduceLocationId(i);
             if (seedIdRanges.Contains(seedId)) return i;
         }
-        
+
         return -1;
     }
 }
@@ -58,7 +59,7 @@ public static class Parser
 
         return ids;
     }
-    
+
     public static List<IdRange> ParseSeedIdRanges(string[] input)
     {
         var rest = input[0].SkipWhile(IsNotDigit).ToArray();
@@ -73,8 +74,9 @@ public static class Parser
             var length = ids[2 * i + 1];
             idRanges.Add(new IdRange(start, length));
         }
+
         idRanges.Sort();
-        
+
         return idRanges;
     }
 
@@ -134,10 +136,9 @@ public class Reducer(IReadOnlyList<string[]> chunks)
 
         return seedId;
     }
-    
+
     public bool IsReducingReversible()
     {
-        
         return _seedToSoilMapper.IsMappingReversible() &&
                _soilToFertilizerMapper.IsMappingReversible() &&
                _fertilizerToWaterMapper.IsMappingReversible() &&
@@ -151,13 +152,13 @@ public class Reducer(IReadOnlyList<string[]> chunks)
 public class Mapper
 {
     private readonly List<MapEntry> _mapEntries;
-    
+
     public Mapper(string[] chunk)
     {
         _mapEntries = Parser.ParseMap(chunk);
         _mapEntries.Sort();
     }
-    
+
     public bool IsMappingReversible()
     {
         for (var i = 0; i < _mapEntries.Count; i++)
@@ -167,6 +168,7 @@ public class Mapper
                 if (_mapEntries[i].IsOverlappingDestination(_mapEntries[j])) return false;
             }
         }
+
         return true;
     }
 
@@ -176,33 +178,34 @@ public class Mapper
         if (entry == default) return source;
         return entry.DestinationStart + (source - entry.SourceStart);
     }
-    
+
     public long ReverseMap(long destination)
     {
-        var entry = _mapEntries.FirstOrDefault(e => 
+        var entry = _mapEntries.FirstOrDefault(e =>
             e.DestinationStart <= destination && e.DestinationEnd >= destination);
-        
+
         if (entry == default) return destination;
         return entry.SourceStart + (destination - entry.DestinationStart);
     }
 }
 
 public readonly record struct MapEntry(long DestinationStart, long DestinationEnd, long SourceStart, long SourceEnd)
-: IComparable<MapEntry>
+    : IComparable<MapEntry>
 {
-    public MapEntry(long destination, long source, long length) : 
+    public MapEntry(long destination, long source, long length) :
         this(
-            destination, 
-            destination + length - 1, 
-            source, 
+            destination,
+            destination + length - 1,
+            source,
             source + length - 1)
-    {}
-    
+    {
+    }
+
     public bool IsOverlappingDestination(MapEntry other)
     {
         return DestinationStart <= other.DestinationEnd && DestinationEnd >= other.DestinationStart;
     }
-    
+
     public int CompareTo(MapEntry other)
     {
         return DestinationStart.CompareTo(other.DestinationStart);
@@ -213,7 +216,7 @@ public readonly struct IdRange(long start, long length) : IComparable<IdRange>
 {
     public long Start { get; } = start;
     public long End { get; } = start + length - 1;
-    
+
     public int CompareTo(IdRange other)
     {
         return Start.CompareTo(other.Start);
@@ -227,3 +230,5 @@ public static class Extensions
         return range.Any(r => r.Start <= id && r.End >= id);
     }
 }
+
+public class YouAreFuckedException(string? message) : Exception(message);
