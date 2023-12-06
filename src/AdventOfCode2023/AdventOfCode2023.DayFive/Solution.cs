@@ -8,16 +8,28 @@ public static class Solution
         var seedIds = Parser.ParseSeedIds(chunks[0]);
         var reducer = new Reducer(chunks[1..chunks.Count]);
 
-        return seedIds.Select(reducer.Reduce).Min();
+        return seedIds.Select(reducer.ReduceSeedId).Min();
     }
 
     public static long PartTwo(string[] input)
     {
-        return 0;
+        var chunks = Parser.ChunkByEmptyLines(input);
+        var seedIdRanges = Parser.ParseSeedIdRanges(chunks[0]);
+        var reducer = new Reducer(chunks[1..chunks.Count]);
+        
+        if (!reducer.IsReducingReversible()) throw new Exception("You are fucked");
+        
+        for (long i = 0; i < long.MaxValue; i++)
+        {
+            var seedId = reducer.ReduceLocationId(i);
+            if (seedIdRanges.Contains(seedId)) return i;
+        }
+        
+        return -1;
     }
 }
 
-internal static class Parser
+public static class Parser
 {
     public static List<string[]> ChunkByEmptyLines(string[] input)
     {
@@ -46,6 +58,25 @@ internal static class Parser
 
         return ids;
     }
+    
+    public static List<IdRange> ParseSeedIdRanges(string[] input)
+    {
+        var rest = input[0].SkipWhile(IsNotDigit).ToArray();
+        var ids = new string(rest).Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(long.Parse)
+            .ToArray();
+
+        var idRanges = new List<IdRange>(ids.Length / 2);
+        for (var i = 0; i < ids.Length / 2; i++)
+        {
+            var start = ids[2 * i];
+            var length = ids[2 * i + 1];
+            idRanges.Add(new IdRange(start, length));
+        }
+        idRanges.Sort();
+        
+        return idRanges;
+    }
 
     public static List<MapEntry> ParseMap(string[] chunk)
     {
@@ -69,7 +100,7 @@ internal static class Parser
     }
 }
 
-internal class Reducer(IReadOnlyList<string[]> chunks)
+public class Reducer(IReadOnlyList<string[]> chunks)
 {
     private readonly Mapper _seedToSoilMapper = new(chunks[0]);
     private readonly Mapper _soilToFertilizerMapper = new(chunks[1]);
@@ -79,7 +110,7 @@ internal class Reducer(IReadOnlyList<string[]> chunks)
     private readonly Mapper _temperatureToHumidityMapper = new(chunks[5]);
     private readonly Mapper _humidityToLocationMapper = new(chunks[6]);
 
-    public long Reduce(long seedId)
+    public long ReduceSeedId(long seedId)
     {
         var soilId = _seedToSoilMapper.Map(seedId);
         var fertilizerId = _soilToFertilizerMapper.Map(soilId);
@@ -90,26 +121,109 @@ internal class Reducer(IReadOnlyList<string[]> chunks)
         var locationId = _humidityToLocationMapper.Map(humidityId);
         return locationId;
     }
+
+    public long ReduceLocationId(long locationId)
+    {
+        var humidityId = _humidityToLocationMapper.ReverseMap(locationId);
+        var temperatureId = _temperatureToHumidityMapper.ReverseMap(humidityId);
+        var lightId = _lightToTemperatureMapper.ReverseMap(temperatureId);
+        var waterId = _waterToLightMapper.ReverseMap(lightId);
+        var fertilizerId = _fertilizerToWaterMapper.ReverseMap(waterId);
+        var soilId = _soilToFertilizerMapper.ReverseMap(fertilizerId);
+        var seedId = _seedToSoilMapper.ReverseMap(soilId);
+
+        return seedId;
+    }
+    
+    public bool IsReducingReversible()
+    {
+        
+        return _seedToSoilMapper.IsMappingReversible() &&
+               _soilToFertilizerMapper.IsMappingReversible() &&
+               _fertilizerToWaterMapper.IsMappingReversible() &&
+               _waterToLightMapper.IsMappingReversible() &&
+               _lightToTemperatureMapper.IsMappingReversible() &&
+               _temperatureToHumidityMapper.IsMappingReversible() &&
+               _humidityToLocationMapper.IsMappingReversible();
+    }
 }
 
-internal class Mapper(List<MapEntry> mapEntries)
+public class Mapper
 {
-    public Mapper(string[] chunk) : this(Parser.ParseMap(chunk))
+    private readonly List<MapEntry> _mapEntries;
+    
+    public Mapper(string[] chunk)
     {
+        _mapEntries = Parser.ParseMap(chunk);
+        _mapEntries.Sort();
+    }
+    
+    public bool IsMappingReversible()
+    {
+        for (var i = 0; i < _mapEntries.Count; i++)
+        {
+            for (var j = i + 1; j < _mapEntries.Count; j++)
+            {
+                if (_mapEntries[i].IsOverlappingDestination(_mapEntries[j])) return false;
+            }
+        }
+        return true;
     }
 
     public long Map(long source)
     {
-        var entry = mapEntries.FirstOrDefault(e => e.SourceStart <= source && e.SourceEnd >= source);
+        var entry = _mapEntries.FirstOrDefault(e => e.SourceStart <= source && e.SourceEnd >= source);
         if (entry == default) return source;
         return entry.DestinationStart + (source - entry.SourceStart);
     }
+    
+    public long ReverseMap(long destination)
+    {
+        var entry = _mapEntries.FirstOrDefault(e => 
+            e.DestinationStart <= destination && e.DestinationEnd >= destination);
+        
+        if (entry == default) return destination;
+        return entry.SourceStart + (destination - entry.DestinationStart);
+    }
 }
 
-internal readonly record struct MapEntry(long DestinationStart, long DestinationEnd, long SourceStart, long SourceEnd)
+public readonly record struct MapEntry(long DestinationStart, long DestinationEnd, long SourceStart, long SourceEnd)
+: IComparable<MapEntry>
 {
-    public MapEntry(long destination, long source, long length) : this(destination, destination + length, source,
-        source + length)
+    public MapEntry(long destination, long source, long length) : 
+        this(
+            destination, 
+            destination + length - 1, 
+            source, 
+            source + length - 1)
+    {}
+    
+    public bool IsOverlappingDestination(MapEntry other)
     {
+        return DestinationStart <= other.DestinationEnd && DestinationEnd >= other.DestinationStart;
+    }
+    
+    public int CompareTo(MapEntry other)
+    {
+        return DestinationStart.CompareTo(other.DestinationStart);
+    }
+}
+
+public readonly struct IdRange(long start, long length) : IComparable<IdRange>
+{
+    public long Start { get; } = start;
+    public long End { get; } = start + length - 1;
+    
+    public int CompareTo(IdRange other)
+    {
+        return Start.CompareTo(other.Start);
+    }
+}
+
+public static class Extensions
+{
+    public static bool Contains(this IEnumerable<IdRange> range, long id)
+    {
+        return range.Any(r => r.Start <= id && r.End >= id);
     }
 }

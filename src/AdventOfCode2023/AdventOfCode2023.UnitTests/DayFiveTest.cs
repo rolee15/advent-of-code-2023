@@ -51,4 +51,62 @@ public class DayFiveTest
 
         result.Should().Be(35);
     }
+    
+    [Fact]
+    public void PartTwoTest()
+    {
+        var input = TestInput.Split(Environment.NewLine);
+
+        var result = Solution.PartTwo(input);
+
+        result.Should().Be(46);
+    }
+
+    [Fact]
+    public void MapEntry_IsOverlapping()
+    {
+        var baseMapEntry = new MapEntry(10, 0, 10);
+        var toTheLeftNotOverlapping = new MapEntry(0, 0, 10);
+        var toTheLeftOverlapping = new MapEntry(0, 0, 11);
+        var toTheRightNotOverlapping = new MapEntry(20, 0, 10);
+        var toTheRightOverlapping = new MapEntry(19, 0, 10);
+        var insideOverlapping = new MapEntry(12, 0, 5);
+        
+        baseMapEntry.IsOverlappingDestination(toTheLeftNotOverlapping).Should().BeFalse();
+        baseMapEntry.IsOverlappingDestination(toTheLeftOverlapping).Should().BeTrue();
+        baseMapEntry.IsOverlappingDestination(toTheRightNotOverlapping).Should().BeFalse();
+        baseMapEntry.IsOverlappingDestination(toTheRightOverlapping).Should().BeTrue();
+        baseMapEntry.IsOverlappingDestination(insideOverlapping).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Extensions_Contains()
+    {
+        var range1 = new IdRange(1, 3);
+        var range2 = new IdRange(5, 5);
+        var ranges = new[] {range1, range2};
+        
+        ranges.Contains(0).Should().BeFalse();
+        ranges.Contains(1).Should().BeTrue();
+        ranges.Contains(2).Should().BeTrue();
+        ranges.Contains(3).Should().BeTrue();
+        ranges.Contains(4).Should().BeFalse();
+        ranges.Contains(5).Should().BeTrue();
+        ranges.Contains(6).Should().BeTrue();
+        ranges.Contains(7).Should().BeTrue();
+        ranges.Contains(8).Should().BeTrue();
+        ranges.Contains(9).Should().BeTrue();
+        ranges.Contains(10).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Mapper_ReverseMap()
+    {
+        var chunks = Parser.ChunkByEmptyLines(TestInput.Split(Environment.NewLine));
+        var reducer = new Reducer(chunks[1..chunks.Count]);
+        
+        var result = reducer.ReduceLocationId(46);
+        
+        result.Should().Be(82);
+    }
 }
