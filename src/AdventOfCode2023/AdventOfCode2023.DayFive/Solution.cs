@@ -17,7 +17,7 @@ public static class Solution
         var seedIdRanges = Parser.ParseSeedIdRanges(chunks[0]);
         var reducer = new Reducer(chunks[1..chunks.Count]);
 
-        if (reducer.IsReducingReversible())
+        if (!reducer.IsReducingReversible())
             throw new YouAreFuckedException("Aww, you thought it will be that easy?");
 
         for (long i = 0; i < long.MaxValue; i++)
