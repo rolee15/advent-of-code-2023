@@ -2,41 +2,39 @@
 
 public static class Solution
 {
-    public static int PartOne(string[] input)
+    public static int PartOne(IEnumerable<string> input)
     {
-        var listOfCards = ParseInput(input);
-        var total = 0;
-        for (var i = 1; i < listOfCards.Count; i++)
-        {
-            total += listOfCards.Values.ElementAt(i) * i;
-        }
-        return total;
+        var listOfCards = ParseInput<Card>(input);
+
+        return listOfCards.Select((pair, i) => (i + 1) * pair.Value).Sum();
     }
 
-    private static SortedDictionary<Hand, int> ParseInput(string[] input)
+    public static int PartTwo(IEnumerable<string> input)
     {
-        var dictionary = new SortedDictionary<Hand, int>();
+        var listOfCards = ParseInput<CardJoker>(input);
+
+        return listOfCards.Select((pair, i) => (i + 1) * pair.Value).Sum();
+    }
+
+    private static SortedDictionary<Hand<T>, int> ParseInput<T>(IEnumerable<string> input) where T :  struct, ICard
+    {
+        var dictionary = new SortedDictionary<Hand<T>, int>();
         foreach (var line in input)
         {
             var tokens = line.Split(' ');
-            var cards = tokens[0].ToCharArray().Select(x => new Card(x)).ToArray();
-            dictionary.Add(new Hand(cards), int.Parse(tokens[1]));
+            var cards = tokens[0].ToCharArray().Select(x => new T { Label = x }).ToList();
+            dictionary.Add(new Hand<T>(cards), int.Parse(tokens[1]));
         }
 
         return dictionary;
     }
-
-    public static int PartTwo(string[] input)
-    {
-        return 0;
-    }
 }
 
-public readonly struct Hand : IComparable<Hand>
+public readonly struct Hand<T> : IComparable<Hand<T>> where T : ICard
 {
-    public Hand(Card[] cards)
+    public Hand(List<T> cards)
     {
-        if (cards.Length != 5)
+        if (cards.Count != 5)
         {
             throw new ArgumentException("A hand must contain exactly five cards", nameof(cards));
         }
@@ -45,15 +43,15 @@ public readonly struct Hand : IComparable<Hand>
         Type = CalculateType();
     }
 
-    private Card[] Cards { get; }
+    private List<T> Cards { get; }
 
     public HandType Type { get; }
     
-    public int CompareTo(Hand other)
+    public int CompareTo(Hand<T> other)
     {
         if (Type != other.Type) return Type.CompareTo(other.Type);
         
-        for (var i = 0; i < Cards.Length; i++)
+        for (var i = 0; i < Cards.Count; i++)
         {
             if (Cards[i].Value != other.Cards[i].Value)
             {
@@ -66,22 +64,22 @@ public readonly struct Hand : IComparable<Hand>
 
     private HandType CalculateType()
     {
-        var dictionary = new Dictionary<Card, int>();
-        foreach (var card in Cards)
+        var dictionary = new Dictionary<T, int>();
+        foreach (var card in Cards.Where(card => !dictionary.TryAdd<T, int>(card, 1)))
         {
-            if (!dictionary.TryAdd(card, 1))
-            {
-                dictionary[card]++;
-            }
+            dictionary[card]++;
         }
 
+        var jokerCount = Cards.Count(x => x.IsJoker);
         return dictionary.Count switch
         {
-            1 => HandType.FiveOfAKind,
-            2 => dictionary.Values.Any(x => x == 4) ? HandType.FourOfAKind : HandType.FullHouse,
-            3 => dictionary.Values.Any(x => x == 3) ? HandType.ThreeOfAKind : HandType.TwoPairs,
-            4 => HandType.OnePair,
-            _ => HandType.HighCard
+            5 => jokerCount > 0 ? HandType.OnePair : HandType.HighCard,
+            4 => jokerCount > 0 ? HandType.ThreeOfAKind : HandType.OnePair,
+            3 when jokerCount == 0 => dictionary.Values.Any(x => x == 3) ? HandType.ThreeOfAKind : HandType.TwoPairs,
+            3 when jokerCount == 1 => dictionary.Values.Any(x => x == 3) ? HandType.FourOfAKind : HandType.FullHouse,
+            3 when jokerCount > 1 => HandType.FourOfAKind,
+            2 when jokerCount == 0 => dictionary.Values.Any(x => x == 4) ? HandType.FourOfAKind : HandType.FullHouse,
+            _ => HandType.FiveOfAKind
         };
     }
 }
@@ -97,10 +95,30 @@ public enum HandType
     FiveOfAKind
 }
 
-public readonly struct Card(char label)
+public interface ICard
 {
-    public int Value { get; } = MapLabel(label);
+    int Value { get; }
+    bool IsJoker { get; }
+    char Label { get; init;  }
+}
+
+public readonly struct Card : ICard
+{
+    public int Value { get; private init; }
+    public bool IsJoker => false;
+
+    public char Label
+    {
+        get => _label;
+        init
+        {
+            _label = value;
+            Value = MapLabel(value);
+        }
+    }
     
+    private readonly char _label;
+
     private static int MapLabel(char label)
     {
         return label switch
@@ -120,5 +138,30 @@ public readonly struct Card(char label)
             'A' => 14,
             _ => throw new ArgumentException($"Invalid label: {label}", nameof(label))
         };
+    }
+}
+
+public readonly struct CardJoker : ICard
+{
+    public int Value => IsJoker ? 1 : Card.Value;
+    public bool IsJoker => Label == 'J';
+
+    public char Label
+    {
+        get => _label;
+        init 
+        { 
+            _label = value;
+            Card = MapLabel(value); 
+        }
+    }
+
+    private readonly char _label;
+
+    private Card Card { get; init; }
+
+    private static Card MapLabel(char label)
+    {
+        return new Card { Label = label };
     }
 }
