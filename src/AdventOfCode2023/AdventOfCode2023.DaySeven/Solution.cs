@@ -4,19 +4,21 @@ public static class Solution
 {
     public static int PartOne(IEnumerable<string> input)
     {
-        var listOfCards = ParseInput<Card>(input);
-
-        return listOfCards.Select((pair, i) => (i + 1) * pair.Value).Sum();
+        return CalculateHandBidValues<Card>(input);
     }
 
     public static int PartTwo(IEnumerable<string> input)
     {
-        var listOfCards = ParseInput<CardJoker>(input);
+        return CalculateHandBidValues<CardJoker>(input);
+    }
 
+    private static int CalculateHandBidValues<T>(IEnumerable<string> input) where T : struct, ICard
+    {
+        var listOfCards = ParseInput<T>(input);
         return listOfCards.Select((pair, i) => (i + 1) * pair.Value).Sum();
     }
 
-    private static SortedDictionary<Hand<T>, int> ParseInput<T>(IEnumerable<string> input) where T :  struct, ICard
+    private static SortedDictionary<Hand<T>, int> ParseInput<T>(IEnumerable<string> input) where T : struct, ICard
     {
         var dictionary = new SortedDictionary<Hand<T>, int>();
         foreach (var line in input)
@@ -46,11 +48,11 @@ public readonly struct Hand<T> : IComparable<Hand<T>> where T : ICard
     private List<T> Cards { get; }
 
     public HandType Type { get; }
-    
+
     public int CompareTo(Hand<T> other)
     {
         if (Type != other.Type) return Type.CompareTo(other.Type);
-        
+
         for (var i = 0; i < Cards.Count; i++)
         {
             if (Cards[i].Value != other.Cards[i].Value)
@@ -99,7 +101,7 @@ public interface ICard
 {
     int Value { get; }
     bool IsJoker { get; }
-    char Label { get; init;  }
+    char Label { init; }
 }
 
 public readonly struct Card : ICard
@@ -109,15 +111,8 @@ public readonly struct Card : ICard
 
     public char Label
     {
-        get => _label;
-        init
-        {
-            _label = value;
-            Value = MapLabel(value);
-        }
+        init => Value = MapLabel(value);
     }
-    
-    private readonly char _label;
 
     private static int MapLabel(char label)
     {
@@ -144,15 +139,14 @@ public readonly struct Card : ICard
 public readonly struct CardJoker : ICard
 {
     public int Value => IsJoker ? 1 : Card.Value;
-    public bool IsJoker => Label == 'J';
+    public bool IsJoker => _label == 'J';
 
     public char Label
     {
-        get => _label;
-        init 
-        { 
+        init
+        {
             _label = value;
-            Card = MapLabel(value); 
+            Card = MapLabel(value);
         }
     }
 
